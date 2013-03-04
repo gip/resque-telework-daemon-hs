@@ -25,7 +25,7 @@ fromLazy = B.pack . BL.unpack
 objectString :: A.Object -> String
 objectString = T.unpack . bsText . fromLazy . A.encode
 
-data Obj = HOSTS | TASKS | WORKERS | IDS | QUEUES | STATUS
+data Obj = HOSTS | TASKS | WORKERS | IDS | QUEUES | STATUS | LAST_SEEN
          | ALIASES | COMMENTS | LOGS | AUTOS | ALIVE | CMDS | REVISIONS
   deriving (Show)
 
@@ -77,6 +77,7 @@ addAlive :: Conn -> T.Text -> A.Object -> Integer -> IO (GenResp ())
 addAlive conn h v ttl = generic conn (do { r <- set k vbs; _ <- expire k ttl; return r}) (\_ -> ())
   where k = (textBs $ key conn (Just h) ALIVE)
         vbs = (fromLazy . A.encode) v
+remAlive conn h = generic conn (del [(textBs $ key conn (Just h) ALIVE)]) (\_ -> ())
 
 -- HOSTS
 getHosts conn = generic conn (smembers (textBs $ key conn Nothing HOSTS)) (map bsText)
@@ -120,6 +121,9 @@ getAliases conn k = generic conn (hget (textBs $ key conn Nothing ALIASES) (text
 
 -- CMDS
 popCmds conn h = generic conn (rpop (textBs $ key conn (Just h) CMDS)) (join . liftM decodeJ)
+
+-- LAST_SEEN
+setLastSeen conn h v = generic conn (set (textBs $ key conn (Just h) LAST_SEEN) (textBs v)) (\_ -> ())
 
 -- STATUS
 pushStatus :: Conn -> T.Text -> A.Object -> IO (GenResp Integer)

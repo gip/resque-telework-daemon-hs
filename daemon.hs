@@ -72,6 +72,14 @@ iAmAlive d = do
   t <- now
   h <- return $ buildObject [("date", t),("version", version d)] 
   R.addAlive (redis d) (host d) h 10
+  R.setLastSeen (redis d) (host d) t
+  return ()
+
+iAmDead :: Daemon -> IO ()
+iAmDead d = do
+  t <- now
+  R.setLastSeen (redis d) (host d) t
+  R.remAlive (redis d) (host d)
   return ()
 
 findRevision :: Daemon -> A.Value -> IO (Maybe A.Object)
@@ -193,6 +201,7 @@ stopDaemon d drt = do
 
 killDaemon d drt = do
   sendStatus d Info (T.concat ["Hard stopping daemon (PID ", (pid d), ") on host ", host d, " by calling exit()"])
+  iAmDead d
   exitSuccess
   return drt
 
@@ -247,6 +256,7 @@ main = do
     sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", (version d),", native haskell) starting on host ", h c])
     mainLoop d (DaemonRT { workers = HM.empty, stop= False })
     sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", (version d),", native haskell) exiting on host ", h c])  
+    iAmDead d
     return ()
     where
       h c = pack $ fs "hostname" c Nothing
