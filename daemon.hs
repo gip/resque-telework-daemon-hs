@@ -247,11 +247,11 @@ main = do
   else do
     conf <- readFile $ Data.List.head args
     c <- return $ fromJust (R.decodeJ (R.textBs $ pack conf))
-    r <- R.connect (fs "resque_prefix" c Nothing) (fs "telework_prefix" c Nothing)
-                   (fsm "redis_host" c) (fim "redis_port" c)
+    r <- R.connect (fs "daemon_resque_prefix" c Nothing) (fs "daemon_telework_prefix" c Nothing)
+                   (fsm "daemon_redis_host" c) (fim "daemon_redis_port" c)
     p <- getProcessID
     d <- return $ Daemon { pid= pack (show p), redis = r, host = h c, 
-                           version = daemon_version, delay = 2*1000*1000, ttl=10 }
+                           version = daemon_version, delay = (dpi c)*1000*1000, ttl=10 }
     R.addHosts r (host d) 
     sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", (version d),", native haskell) starting on host ", h c])
     mainLoop d (DaemonRT { workers = HM.empty, stop= False })
@@ -259,11 +259,13 @@ main = do
     iAmDead d
     return ()
     where
+      dpi c = case fim "daemon_pooling_interval" c of Just i -> i
+                                                      Nothing -> 2 :: Int
       h c = pack $ fs "hostname" c Nothing
       fs k conf d = if HM.member k conf then case conf ! k of A.String s -> unpack s
                                         else fromJust d
       fsm k conf = if HM.member k conf then case conf ! k of A.String s -> Just $ unpack s
                                        else Nothing
-      fim k conf = if HM.member k conf then case conf ! k of A.String i -> Just ((read $ unpack i) :: Integer)
-                                                             --A.Number i -> Just (toInteger i)
+      fim k conf = if HM.member k conf then case conf ! k of A.String i -> Just ((read $ unpack i) :: Int)
+                                                             A.Number i -> Just (ceiling i)
                                        else Nothing

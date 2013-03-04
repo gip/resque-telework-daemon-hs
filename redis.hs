@@ -29,7 +29,7 @@ data Obj = HOSTS | TASKS | WORKERS | IDS | QUEUES | STATUS | LAST_SEEN
          | ALIASES | COMMENTS | LOGS | AUTOS | ALIVE | CMDS | REVISIONS
   deriving (Show)
 
-connect pre tele host (port :: Maybe Integer) =
+connect pre tele host (port :: Maybe Int) =
   do c <- Database.Redis.connect dci  
      return Conn { connection= c, prefix= T.pack pre, teleprefix= T.pack tele }
   where
