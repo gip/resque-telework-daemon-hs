@@ -24,7 +24,7 @@ import System.IO
 import System.Process
 import System.Environment
 
-daemon_version = "0.0.1"
+daemon_version = "0.0.2-hs"
 
 data Daemon = Daemon {
   redis :: R.Conn,
