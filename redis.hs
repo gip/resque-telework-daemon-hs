@@ -29,13 +29,13 @@ data Obj = HOSTS | TASKS | WORKERS | IDS | QUEUES | STATUS
          | ALIASES | COMMENTS | LOGS | AUTOS | ALIVE | CMDS | REVISIONS
   deriving (Show)
 
-connect pre tele host port =
+connect pre tele host (port :: Maybe Integer) =
   do c <- Database.Redis.connect dci  
      return Conn { connection= c, prefix= T.pack pre, teleprefix= T.pack tele }
   where
     dci= let d0= case host of Just h -> defaultConnectInfo { connectHost= h }
                               Nothing -> defaultConnectInfo in 
-         let d1= case port of Just p -> d0 { connectPort= p }
+         let d1= case port of Just p -> d0 { connectPort= PortNumber (fromIntegral p) }
                               Nothing -> d0 in
          d1
  

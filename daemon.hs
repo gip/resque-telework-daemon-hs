@@ -16,14 +16,15 @@ import Data.Typeable
 import Control.Exception
 import Control.Concurrent
 import Control.Monad
---import Control.Monad.Trans
---import Control.Monad.State
 
 import System.Posix.Process
 import System.Exit
 import System.Posix.IO
 import System.IO
 import System.Process
+import System.Environment
+
+daemon_version = "0.0.1"
 
 data Daemon = Daemon {
   redis :: R.Conn,
@@ -49,6 +50,7 @@ fromGenResp (R.V a) = a
 fromAString (A.String s) = s
 fromRight (Right a) = a
 fromABool (A.Bool b) = b
+fromJust (Just a) = a
 
 buildObject :: [(Text,Text)] -> HM.HashMap Text A.Value
 buildObject = Data.List.foldr (\(k,v) a-> HM.insert k (A.String v) a) HM.empty
@@ -202,12 +204,11 @@ doCmd d drt cmd = do
                  "signal_worker" -> signalWorker d drt cmd
                  "stop_daemon" -> stopDaemon d drt
                  "kill_daemon" -> killDaemon d drt
-                 _ -> do { sendStatus d Error (T.concat ["Unknown command ", pack $  show c]); return drt }
+                 _ -> do { sendStatus d Error (T.concat ["Unknown command ", fromAString c]); return drt }
   return r
 
--- Main loop
-mainLoop1 :: Daemon -> DaemonRT -> IO DaemonRT
-mainLoop1 d drt = do
+loopBody :: Daemon -> DaemonRT -> IO DaemonRT
+loopBody d drt = do
   iAmAlive d
   drt0 <- checkProcess d drt
   drt1 <- process drt0
@@ -226,21 +227,33 @@ mainLoop d drt = catches (loop drt) [
     do sendStatus d Error (T.concat ["Exception thrown in daemon on host ", host d])
        sendStatus d Error (T.concat ["Please submit a bit report for exception ", pack $ show ex]) ) 
   ]
-  where loop drt = do drt' <- mainLoop1 d drt
+  where loop drt = do drt' <- loopBody d drt
                       if (stop drt') then return () else loop drt'
 
-
-
 main = do
-  r <- R.connect "resque:RGdev" "resque:RGdev:plugins:telework" Nothing Nothing
-  p <- getProcessID
-  h <- return "Gilles-Pirios-MacBook-Pro.local"
-  v <- return "0.0.1"
-  d <- return $ Daemon { pid= pack (show p), redis = r, host = h, version = v, delay = 5*1000*1000, ttl=10 }
-  R.addHosts r (host d) 
-  sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", v,", native haskell) starting on host ", h])
-  mainLoop d (DaemonRT { workers = HM.empty, stop= False })
-  sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", v,", native haskell) exiting on host ", h])
-  return ()
-
-
+  args <- getArgs
+  if Data.List.length args /= 1 then do 
+    putStrLn "Telework: Usage: telework-daemon <config file>"
+    return ()
+  else do
+    conf <- readFile $ Data.List.head args
+    c <- return $ fromJust (R.decodeJ (R.textBs $ pack conf))
+    r <- R.connect (fs "resque_prefix" c Nothing) (fs "telework_prefix" c Nothing)
+                   (fsm "redis_host" c) (fim "redis_port" c)
+    p <- getProcessID
+    d <- return $ Daemon { pid= pack (show p), redis = r, host = h c, 
+                           version = daemon_version, delay = 2*1000*1000, ttl=10 }
+    R.addHosts r (host d) 
+    sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", (version d),", native haskell) starting on host ", h c])
+    mainLoop d (DaemonRT { workers = HM.empty, stop= False })
+    sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", (version d),", native haskell) exiting on host ", h c])  
+    return ()
+    where
+      h c = pack $ fs "hostname" c Nothing
+      fs k conf d = if HM.member k conf then case conf ! k of A.String s -> unpack s
+                                        else fromJust d
+      fsm k conf = if HM.member k conf then case conf ! k of A.String s -> Just $ unpack s
+                                       else Nothing
+      fim k conf = if HM.member k conf then case conf ! k of A.String i -> Just ((read $ unpack i) :: Integer)
+                                                             --A.Number i -> Just (toInteger i)
+                                       else Nothing
