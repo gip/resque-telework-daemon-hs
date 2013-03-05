@@ -3,9 +3,11 @@ module Main where
 
 import qualified Redis as R
 import Spawn
+import HostInfo
 
 import qualified Data.Aeson as A
 import Data.List
+import Data.Maybe
 import Data.Either
 import Data.Text as T
 import Data.Time.Clock
@@ -32,7 +34,8 @@ data Daemon = Daemon {
   version :: Text,
   delay :: Int,
   pid :: Text,
-  ttl :: Integer
+  ttl :: Integer,
+  hostinfo :: Bool
 }
 
 data DaemonRT = DaemonRT {
@@ -50,7 +53,7 @@ fromGenResp (R.V a) = a
 fromAString (A.String s) = s
 fromRight (Right a) = a
 fromABool (A.Bool b) = b
-fromJust (Just a) = a
+--fromJust (Just a) = a
 
 buildObject :: [(Text,Text)] -> HM.HashMap Text A.Value
 buildObject = Data.List.foldr (\(k,v) a-> HM.insert k (A.String v) a) HM.empty
@@ -70,8 +73,13 @@ sendStatus d s t = do
 iAmAlive :: Daemon -> IO ()
 iAmAlive d = do
   t <- now
-  h <- return $ buildObject [("date", t),("version", version d)] 
-  R.addAlive (redis d) (host d) h 10
+  h <- return [("date", t),("version", version d)]
+  h' <- if hostinfo d then do hi <- getHostInfo
+                              return $ case hi of Just i -> (i ++ h)
+                                                  Nothing -> h
+                      else return h
+  putStrLn $ show h'
+  R.addAlive (redis d) (host d) (buildObject h') 10
   R.setLastSeen (redis d) (host d) t
   return ()
 
@@ -250,7 +258,8 @@ main = do
     r <- R.connect (fs "daemon_resque_prefix" c Nothing) (fs "daemon_telework_prefix" c Nothing)
                    (fsm "daemon_redis_host" c) (fim "daemon_redis_port" c)
     p <- getProcessID
-    d <- return $ Daemon { pid= pack (show p), redis = r, host = h c, 
+    hi <- getHostInfo
+    d <- return $ Daemon { pid= pack (show p), redis = r, host = h c, hostinfo = isJust hi,
                            version = daemon_version, delay = (dpi c)*1000*1000, ttl=10 }
     R.addHosts r (host d) 
     sendStatus d Info (T.concat ["Daemon (PID ", (pid d), ", version ", (version d),", native haskell) starting on host ", h c])
