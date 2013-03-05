@@ -78,7 +78,6 @@ iAmAlive d = do
                               return $ case hi of Just i -> (i ++ h)
                                                   Nothing -> h
                       else return h
-  putStrLn $ show h'
   R.addAlive (redis d) (host d) (buildObject h') 10
   R.setLastSeen (redis d) (host d) t
   return ()
