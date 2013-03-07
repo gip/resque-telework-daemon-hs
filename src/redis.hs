@@ -110,8 +110,13 @@ getTasks = get_ TASKS
 getTasksById = get_by_id TASKS 
 
 -- AUTOS
+
 getAutos = get_ AUTOS
 getAutosById = get_by_id AUTOS 
+remAutos conn h id = generic conn (hdel (textBs $ key conn (Just h) AUTOS) [(textBs id)]) (\x -> x) 
+addAutos conn h id v ttl = generic conn (do { r <- hset k (textBs id) vbs; expire k ttl }) (\x -> x)
+  where k = (textBs $ key conn (Just h) AUTOS)
+        vbs= (fromLazy . A.encode) v
 
 -- QUEUES
 getQueues conn = generic conn (smembers (textBs $ key conn Nothing QUEUES)) (map bsText)

@@ -17,7 +17,7 @@ getHostInfo = do
                               (Nothing, Just b) -> Just (zip memi b)
                               (Just a, Just b) -> Just (zip loadi a ++ zip memi b)
   where
-    loadi = ["load_avg_1min", "load_avg_5min", "load_avg_15min"]
+    loadi = ["load_avg_1mins", "load_avg_5mins", "load_avg_15mins"]
     memi = ["mem_total", "mem_free"]
 
 readMatch f re = catches res [Handler (\ (ex :: SomeException) -> return Nothing)]
