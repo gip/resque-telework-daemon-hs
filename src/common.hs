@@ -11,7 +11,7 @@ import Data.Foldable as F
 import qualified Redis as R
 import qualified Data.Aeson as A
 
-daemon_version = "0.0.2-hs"
+daemon_version = "0.0.3-hs"
 
 data Daemon = Daemon {
   redis :: R.Conn,
@@ -38,6 +38,8 @@ hmFoldrM f hm = F.foldrM f HM.empty (HM.toList hm)
 
 fromGenResp (R.V a) = a
 fromAString (A.String s) = s
+fromANumber (A.Number i) = show i
+fromAArray (A.Array a) = a
 fromRight (Right a) = a
 fromABool (A.Bool b) = b
 
