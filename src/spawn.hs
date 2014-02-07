@@ -35,7 +35,7 @@ data Status = ChildStatus (Maybe ProcessStatus)
 -- Check the status
 status :: Int -> IO Status
 status pid =
-  Prelude.catch 
+  catch 
     (liftM ChildStatus $ getProcessStatus False False (fromIntegral pid))
     (\e -> let _ = e :: IOException in return NoChildStatus)
 

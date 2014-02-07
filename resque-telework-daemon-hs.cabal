@@ -1,0 +1,32 @@
+name:            resque-telework-daemon-hs
+version:         0.5
+license:         BSD3
+license-file:    LICENSE
+author:          Gilles Pirio <g36130@gmail.com>
+maintainer:      Gilles Pirio <g36130@gmail.com>
+synopsis:        
+description:
+category:        Web
+stability:       Stable
+cabal-version:   >= 1.8
+build-type:      Simple
+homepage:        https://github.com/gip/resque-telework-daemon-hs
+
+
+
+
+
+
+Executable telework-daemon-hs
+  Main-is:             daemon.hs
+  hs-source-dirs:      src
+  other-modules:       Common, Auto, HostInfo, Redis, Spawn, Worker
+  build-depends: base, process, unix, old-locale, old-time, text, case-insensitive, string-conversions
+               , vector, directory, regex-compat, time, unordered-containers
+               , bytestring            >= 0.10.4.0
+               , aeson                 >= 0.6.2.1
+               , hedis                 
+  ghc-options:         
+  extensions: DeriveDataTypeable DoAndIfThenElse OverloadedStrings ScopedTypeVariables 
+
+
